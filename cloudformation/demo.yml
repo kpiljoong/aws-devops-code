@@ -13,23 +13,6 @@ Parameters:
         Description: An existing S3 bucket within this AWS account
         Type: String
 
-    GitHubOAuthToken:
-        Description: Create a token with 'repo' and 'admin:repo_hook' permissions here https://github.com/settings/tokens
-        Type: String
-
-    GitHubUser:
-        Description: Enter GitHub username of the repository owner
-        Type: String
-
-    GitHubRepository:
-        Description: Enter the repository name that should be monitored for changes
-        Type: String
-
-    GitHubBranch:
-        Description: Enter the GitHub branch to monitored
-        Type: String
-        Default: master
-
 Metadata:
 
     AWS::CloudFormation::Interface:
@@ -40,30 +23,29 @@ Metadata:
                 Parameters:
                     - ApplicationName
                     - ArtifactS3Bucket
-            -
-                Label:
-                    default: GitHub Configuration
-                Parameters:
-                    - GitHubOAuthToken
-                    - GitHubUser
-                    - GitHubRepository
-                    - GitHubBranch
 
         ParameterLabels:
             ApplicationName:
                 default: Application Name
             ArtifactS3Bucket:
                 default: CodePipeline S3 Bucket
-            GitHubRepository:
-                default: Repository Name
-            GitHubUser:
-                default: Repository Owner
-            GitHubBranch:
-                default: Repository Branch
-            GitHubOAuthToken:
-                default: OAuth2 Token
 
 Resources:
+
+    CodePipelineSNSTopic:
+        Type: AWS::SNS::Topic
+        Properties:
+            DisplayName: !Sub ${ApplicationName}-sns
+            Subscription:
+                -
+                    Endpoint: "piljoong@amazon.com"
+                    Protocol: email
+
+    CodeCommitRepository:
+        Type: AWS::CodeCommit::Repository
+        Properties:
+            RepositoryName: !Ref ApplicationName
+            RepositoryDescription: The repository for the Summit Demo Code
 
     CodePipeline:
         Type: AWS::CodePipeline::Pipeline
@@ -78,19 +60,17 @@ Resources:
                     Name: Source
                     Actions:
                         -
-                            Name: GitHub
+                            Name: FetchSource
                             ActionTypeId:
                                 Category: Source
-                                Owner: ThirdParty
+                                Owner: AWS
                                 Version: 1
-                                Provider: GitHub
+                                Provider: CodeCommit
+                            Configuration:
+                                RepositoryName: !GetAtt CodeCommitRepository.Name
+                                BranchName: master
                             OutputArtifacts:
                                 -  Name: Source
-                            Configuration:
-                                Owner: !Ref GitHubUser
-                                Repo: !Ref GitHubRepository
-                                Branch: !Ref GitHubBranch
-                                OAuthToken: !Ref GitHubOAuthToken
                 -
                     Name: Build
                     Actions:
@@ -146,6 +126,7 @@ Resources:
                             Configuration:
                                 ApplicationName: !Ref ApplicationName
                                 DeploymentGroupName: staging
+
                 -
                     Name: Approvals
                     Actions:
@@ -156,6 +137,9 @@ Resources:
                                 Owner: AWS
                                 Version: 1
                                 Provider: Manual
+                            Configuration:
+                                NotificationArn: !Ref CodePipelineSNSTopic
+                                CustomData: 'Approval or Reject this change after running Exploratory Tests'
 
                 -
                     Name: Production
@@ -257,6 +241,17 @@ Resources:
                                 },
                                 {
                                     "Action": [
+                                        "codecommit:GetBranch",
+                                        "codecommit:GetCommit",
+                                        "codecommit:UploadArchive",
+                                        "codecommit:GetUploadArchiveStatus",
+                                        "codecommit:CancelUploadArchive"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Action": [
                                         "codedeploy:CreateDeployment",
                                         "codedeploy:GetApplicationRevision",
                                         "codedeploy:GetDeployment",
@@ -287,6 +282,13 @@ Resources:
                                     "Action": [
                                         "codebuild:BatchGetBuilds",
                                         "codebuild:StartBuild"
+                                    ],
+                                    "Resource": "*",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Action": [
+                                        "sns:Publish"
                                     ],
                                     "Resource": "*",
                                     "Effect": "Allow"

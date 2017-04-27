@@ -1,5 +1,5 @@
 Description: >
-    Example Infrastructure for a Go Application.
+    Example Infrastructure for AWS Seoul Summit Demo.
     This template will deploy a highly available Auto Scaling Group of EC2 instances with the CodeDeploy
     agent installed ready for application deployments. It will also deploy a VPC with public and private
     subnets. An Application Load Balancer is placed in the public subnets, which forwards traffic to the
@@ -16,6 +16,12 @@ Parameters:
         Type: String
 
     ArtifactS3Bucket:
+        Type: String
+
+    CodeDeployApplicationName:
+        Type: String
+
+    CodeDeployServiceRoleArn:
         Type: String
 
     # All parameters below can be overridden on a per environment basis in config/*
@@ -233,12 +239,8 @@ Resources:
         Properties:
             DeploymentGroupName: !Ref EnvironmentName
             DeploymentConfigName: !Ref DeploymentStrategy
-            ServiceRoleArn:
-                Fn::ImportValue:
-                    !Sub CodeDeployServiceRoleArn-${ApplicationName}
-            ApplicationName:
-                Fn::ImportValue:
-                    !Sub CodeDeployApplication-${ApplicationName}
+            ServiceRoleArn: !Ref CodeDeployServiceRoleArn
+            ApplicationName: !Ref CodeDeployApplicationName
             AutoScalingGroups:
                 - !Ref AutoScalingGroup
 
