@@ -302,7 +302,7 @@ Resources:
                             "Action": [
                                 "s3:Get*"
                             ],
-                            "Resource": [ "arn:aws:s3:::${ArtifactS3Bucket}/${ApplicationName}/*" ]
+                            "Resource": [ "*" ]
                         }]
                     }
 
